@@ -1,0 +1,43 @@
+name: Aggiorna lezioni
+
+on:
+  schedule:
+    # GitHub usa l'ora UTC: 22:00 UTC = mezzanotte in Italia con l'ora legale,
+    # 23:00 UTC = mezzanotte con l'ora solare. Il secondo giro non cambia nulla se non serve.
+    - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aggiorna-lezioni
+  cancel-in-progress: false
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scarica il calendario e aggiorna l'app
+        env:
+          TZ: Europe/Rome
+        run: python strumenti/aggiorna_da_api.py index.html | tee esito.txt
+
+      - name: Salva le modifiche
+        run: |
+          if git diff --quiet; then
+            echo "Nessun file cambiato."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html dati/lezioni-3anno-2026-27.json
+          git commit -m "Lezioni aggiornate $(TZ=Europe/Rome date +%d/%m/%Y)" -m "$(cat esito.txt)"
+          git push
