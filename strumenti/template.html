@@ -1,0 +1,541 @@
+<title>Bus 21 Casa–Uni</title>
+<meta name="theme-color" content="#0c5c6e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a single phone column read like a stop pole: line badge, where you're going, the next bus big, then the rest of the day. */
+:root {
+  --bg: #f2f5f5;
+  --surface: #ffffff;
+  --ink: #12262b;
+  --muted: #5a6e72;
+  --line: #d5dfe0;
+  --sea: #0c5c6e;          /* accent: the line badge, the selected trip */
+  --sea-soft: #e0eef0;
+  --amber: #b86a00;        /* "leaving now" state */
+  --amber-soft: #fbefdc;
+  --on-sea: #ffffff;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1719; --surface: #152326; --ink: #e6efef; --muted: #91a6a9; --line: #26393d;
+    --sea: #4fb3c6; --sea-soft: #173a41; --amber: #f0a43a; --amber-soft: #3a2a12; --on-sea: #06191d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1719; --surface: #152326; --ink: #e6efef; --muted: #91a6a9; --line: #26393d;
+  --sea: #4fb3c6; --sea-soft: #173a41; --amber: #f0a43a; --amber-soft: #3a2a12; --on-sea: #06191d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 16px; line-height: 1.45;
+  padding-inline: 16px; padding-block: 16px 40px;
+}
+.wrap { max-width: 460px; margin-inline: auto; display: flex; flex-direction: column; gap: 18px; }
+
+header { display: flex; align-items: center; gap: 12px; }
+.badge {
+  flex: none; width: 52px; height: 52px; border-radius: 12px;
+  background: var(--sea); color: var(--on-sea);
+  font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1;
+  display: grid; place-items: center; font-variant-numeric: tabular-nums;
+}
+.head-text { min-width: 0; }
+.head-text h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.05; letter-spacing: .01em; }
+.head-text p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+.label { font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+.trips { display: flex; flex-wrap: wrap; gap: 8px; }
+.trip-btn {
+  font: inherit; font-size: 15px; cursor: pointer;
+  padding: 9px 13px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.trip-btn[aria-pressed="true"] { background: var(--sea); border-color: var(--sea); color: var(--on-sea); font-weight: 700; }
+.trip-btn:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+
+.route { display: grid; grid-template-columns: 14px 1fr; column-gap: 10px; row-gap: 4px; font-size: 14px; }
+.route .dot { width: 10px; height: 10px; border-radius: 50%; border: 2.5px solid var(--sea); margin-top: 5px; justify-self: center; }
+.route .dot.end { background: var(--sea); }
+.route .stem { width: 2px; background: var(--sea); opacity: .45; justify-self: center; min-height: 10px; }
+.route .stop { min-width: 0; }
+.route .stop b { display: block; }
+.route .stop span { color: var(--muted); font-size: 13px; }
+
+.next {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.next.soon { background: var(--amber-soft); border-color: var(--amber); }
+.next-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.count { font-family: var(--display); font-weight: 700; font-size: 64px; line-height: .9; font-variant-numeric: tabular-nums; }
+.count small { font-size: 26px; font-weight: 600; margin-left: 4px; }
+.next.soon .count { color: var(--amber); }
+.dep { text-align: right; }
+.dep .t { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.dep .s { color: var(--muted); font-size: 13px; }
+.next-meta { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.next-meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); }
+
+.list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.list li {
+  display: grid; grid-template-columns: 4.2em 1fr auto; align-items: baseline; gap: 10px;
+  padding: 10px 2px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums;
+}
+.list .t { font-family: var(--display); font-weight: 600; font-size: 22px; }
+.list .arr { color: var(--muted); font-size: 14px; }
+.list .in { font-size: 14px; color: var(--sea); font-weight: 700; white-space: nowrap; }
+.list li.past { opacity: .45; }
+.list li.past .in { color: var(--muted); font-weight: 400; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--sea-soft); color: var(--sea); margin-left: 6px; vertical-align: 2px; }
+
+details { border-top: 1px solid var(--line); padding-top: 12px; }
+summary { cursor: pointer; font-weight: 700; color: var(--sea); }
+.allgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.4em, 1fr)); gap: 6px 8px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+.allgrid span { font-family: var(--display); font-size: 19px; font-weight: 500; }
+.allgrid span.past { color: var(--muted); opacity: .6; text-decoration: line-through; text-decoration-thickness: 1px; }
+.allgrid span.nx { color: var(--sea); font-weight: 700; }
+
+.day { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.day .what { font-weight: 700; }
+.day .why { color: var(--muted); font-size: 14px; flex-basis: 100%; }
+.day select { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); margin-left: auto; }
+.warn { background: var(--amber-soft); border: 1px solid var(--amber); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+
+footer { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+footer a, .src a { color: var(--sea); }
+
+/* tabs */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; }
+.tab { font: inherit; font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: .02em; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--sea); color: var(--on-sea); }
+.view { display: flex; flex-direction: column; gap: 18px; }
+
+/* lessons */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 13px; cursor: pointer; padding: 6px 10px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--sea); }
+.chip[aria-pressed="true"]::before { background: var(--sea); border-color: var(--sea); }
+.weeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.weeknav button { font: inherit; font-size: 20px; width: 44px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.weeknav button:disabled { opacity: .35; cursor: default; }
+.weeknav .wk { text-align: center; min-width: 0; }
+.weeknav .wk b { display: block; font-family: var(--display); font-size: 21px; font-weight: 600; }
+.weeknav .wk span { font-size: 13px; color: var(--muted); }
+.lday { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.lday.today { border-color: var(--sea); border-width: 2px; }
+.lday h3 { margin: 0; padding: 10px 14px; font-family: var(--display); font-weight: 600; font-size: 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--line); }
+.lday h3 small { font-family: var(--body); font-size: 12px; font-weight: 700; color: var(--on-sea); background: var(--sea); padding: 2px 8px; border-radius: 999px; }
+.lrow { display: grid; grid-template-columns: 5.6em 1fr; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); align-items: start; }
+.lrow:last-child { border-bottom: 0; }
+.lrow .when { font-family: var(--display); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.lrow .what { min-width: 0; }
+.lrow .what b { display: block; line-height: 1.25; }
+.lrow .what span { color: var(--muted); font-size: 13px; }
+.lrow.off .when, .lrow.off .what b { text-decoration: line-through; color: var(--muted); }
+.lrow .flag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+.flag.cancel { background: var(--amber-soft); color: var(--amber); }
+.flag.clash { background: var(--amber-soft); color: var(--amber); }
+.brow { display: grid; grid-template-columns: 5.6em 1fr; gap: 10px; padding: 10px 14px; background: var(--sea-soft); border-bottom: 1px solid var(--line); align-items: start; }
+.brow:last-child { border-bottom: 0; }
+.brow .when { font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--sea); font-variant-numeric: tabular-nums; line-height: 1.2; display: flex; align-items: center; gap: 6px; }
+.brow .when i { font-style: normal; font-size: 11px; font-family: var(--body); font-weight: 700; background: var(--sea); color: var(--on-sea); border-radius: 4px; padding: 1px 4px; }
+.brow .what { font-size: 14px; min-width: 0; }
+.brow .what span { color: var(--muted); font-size: 13px; display: block; }
+.gap { padding: 6px 14px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.src { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) {
+  .next { transition: background-color .3s, border-color .3s; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="badge" aria-hidden="true">21</div>
+    <div class="head-text">
+      <h1>Bus 21 · le mie fermate</h1>
+      <p id="clock">Pescara · Terminal ↔ Francavilla</p>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Sezioni">
+    <button class="tab" id="tab-bus" role="tab" aria-selected="true" aria-controls="view-bus" data-view="bus">Bus</button>
+    <button class="tab" id="tab-lez" role="tab" aria-selected="false" aria-controls="view-lez" data-view="lez">Lezioni</button>
+  </div>
+
+  <div class="view" id="view-lez" role="tabpanel" aria-labelledby="tab-lez" hidden>
+    <section style="display:flex;flex-direction:column;gap:8px" aria-labelledby="l-corsi">
+      <div class="label" id="l-corsi">I miei corsi</div>
+      <div class="chips" id="chips"></div>
+    </section>
+    <div class="weeknav">
+      <button type="button" id="wkPrev" aria-label="Settimana precedente">‹</button>
+      <div class="wk"><b id="wkLabel"></b><span id="wkSub"></span></div>
+      <button type="button" id="wkNext" aria-label="Settimana successiva">›</button>
+    </div>
+    <div id="days" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="src">Il bus d'andata ti fa arrivare alla fermata almeno 10 minuti prima della lezione (5 a piedi fino a Viale Pindaro più 5 di margine). Quello di ritorno parte almeno 5 minuti dopo la fine. Calendario lezioni del III anno L-33 preso dall'<a href="https://unich.prod.up.cineca.it/calendarioPubblico/linkCalendarioId=5e71face7c2af0001828a278" target="_blank" rel="noopener">University Planner UniCH</a> (controllato ogni notte a mezzanotte, ultimo aggiornamento: <span id="lezAgg">09/10/2026</span>). Le lezioni annullate compaiono barrate.</div>
+  </div>
+
+  <div class="view" id="view-bus" role="tabpanel" aria-labelledby="tab-bus">
+  <section aria-labelledby="l-trip" style="display:flex;flex-direction:column;gap:8px">
+    <div class="label" id="l-trip">Dove vai</div>
+    <div class="trips" id="trips" role="group" aria-labelledby="l-trip"></div>
+  </section>
+
+  <div class="route" id="route"></div>
+
+  <section class="next" id="next" aria-live="polite"></section>
+
+  <section aria-labelledby="l-after" style="display:flex;flex-direction:column;gap:8px">
+    <div class="label" id="l-after">Corse successive</div>
+    <ul class="list" id="list"></ul>
+  </section>
+
+  <details id="all">
+    <summary>Tutti gli orari di oggi</summary>
+    <div class="allgrid" id="allgrid"></div>
+  </details>
+
+  <div class="day">
+    <div><div class="label">Orario di oggi</div><div class="what" id="dayWhat"></div></div>
+    <label class="label" for="mode" hidden>Tipo di giorno</label>
+    <select id="mode" aria-label="Tipo di giorno">
+      <option value="auto">Automatico</option>
+      <option value="school">Feriale con scuola</option>
+      <option value="noschool">Feriale senza scuola</option>
+      <option value="holiday">Festivo</option>
+      <option value="special">Natale/Pasqua/Capodanno</option>
+    </select>
+    <div class="why" id="dayWhy"></div>
+  </div>
+  <div class="warn" id="warn" hidden></div>
+  </div>
+
+  <footer>
+    <span>Orari programmati dalla tabella ufficiale TUA della linea 21, valida dal 19/09/2025. Il bus può essere in anticipo o in ritardo.</span>
+    <span>Calendario scolastico Abruzzo 2026/27: lezioni dal 16/09/2026 al 09/06/2027.</span>
+  </footer>
+</div>
+
+<script>
+const DATA = __DATA__;
+
+// Columns in DATA.N: [code, casa, uni(Inail), mensa(Marconi 221), stazione(Terminal)]  direction north, towards Pescara centro
+// Columns in DATA.S: [code, stazione(Terminal), uni(Stadio/Conad), mensa(Marconi 170), casa]  direction south, towards Francavilla
+const STOPS = {
+  casaN:  { name: "Viale Primo Vere ang. Via Celommi", hint: "lato mare · bus verso il centro" },
+  casaS:  { name: "Viale Primo Vere ang. Via Celommi", hint: "lato opposto al mare · bus verso Francavilla" },
+  uniN:   { name: "Viale Marconi sede Inail", hint: "zona distributore Agip" },
+  uniS:   { name: "Viale Marconi Stadio", hint: "davanti al Conad" },
+  mensaN: { name: "Viale Marconi 221", hint: "≈150 m dalla mensa" },
+  mensaS: { name: "Viale Marconi 170", hint: "≈150 m dalla mensa" },
+  stazN:  { name: "Terminal Bus (capolinea)", hint: "Piazza della Repubblica, di fronte alla stazione Pescara Centrale" },
+  stazS:  { name: "Terminal Bus (capolinea)", hint: "Piazza della Repubblica, di fronte alla stazione Pescara Centrale" },
+};
+const TRIPS = [
+  { id: "casa-uni",   label: "Casa → Università", dir: "N", from: 1, to: 2, a: "casaN",  b: "uniN" },
+  { id: "uni-casa",   label: "Università → Casa", dir: "S", from: 2, to: 4, a: "uniS",   b: "casaS" },
+  { id: "casa-mensa", label: "Casa → Mensa",      dir: "N", from: 1, to: 3, a: "casaN",  b: "mensaN" },
+  { id: "mensa-casa", label: "Mensa → Casa",      dir: "S", from: 3, to: 4, a: "mensaS", b: "casaS" },
+  { id: "casa-staz",  label: "Casa → Stazione",   dir: "N", from: 1, to: 4, a: "casaN",  b: "stazN" },
+  { id: "staz-casa",  label: "Stazione → Casa",   dir: "S", from: 1, to: 4, a: "stazS",  b: "casaS" },
+];
+
+// ---------- calendar ----------
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const md = d => `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function easter(y) { // Gregorian computus
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4,
+    f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30,
+    i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+    month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, month - 1, day);
+}
+const HOLIDAYS = { "01-01": "Capodanno", "01-06": "Epifania", "04-25": "Festa della Liberazione", "05-01": "Festa dei Lavoratori",
+  "06-02": "Festa della Repubblica", "08-15": "Ferragosto", "11-01": "Ognissanti", "12-08": "Immacolata",
+  "12-25": "Natale", "12-26": "Santo Stefano" };
+const SCHOOL = { start: "2026-09-16", end: "2027-06-09",
+  breaks: [["2026-12-07", "2026-12-07"], ["2026-12-23", "2027-01-06"], ["2027-03-25", "2027-03-30"]] };
+const TIMETABLE_SUMMER_FROM = "2027-06-10";
+
+function classify(d) {
+  const key = ymd(d), mmdd = md(d), dow = d.getDay();
+  const e = easter(d.getFullYear()), em = new Date(e); em.setDate(e.getDate() + 1);
+  if (mmdd === "12-25" || mmdd === "01-01" || key === ymd(e))
+    return { type: "special", why: mmdd === "12-25" ? "Natale" : mmdd === "01-01" ? "Capodanno" : "Pasqua" };
+  if (HOLIDAYS[mmdd]) return { type: "holiday", why: HOLIDAYS[mmdd] };
+  if (key === ymd(em)) return { type: "holiday", why: "Lunedì dell'Angelo" };
+  if (dow === 0) return { type: "holiday", why: "Domenica" };
+  if (dow === 6) return { type: "noschool", why: "Sabato: le corse scolastiche passano solo dal lunedì al venerdì" };
+  const inYear = key >= SCHOOL.start && key <= SCHOOL.end;
+  const onBreak = SCHOOL.breaks.some(([a, b]) => key >= a && key <= b);
+  if (!inYear) return { type: "noschool", why: "Fuori dal periodo delle lezioni" };
+  if (onBreak) return { type: "noschool", why: "Vacanze scolastiche" };
+  return { type: "school", why: "Giorno di lezione" };
+}
+const TYPE_NAME = { school: "Feriale con scuola", noschool: "Feriale senza scuola", holiday: "Festivo", special: "Natale, Pasqua e Capodanno" };
+const CODES = { school: ["UFRIN", "URBSC"], noschool: ["UFRIN", "NSCIN"], holiday: ["FSINV"], special: ["00021"] };
+const CODE_TAG = { URBSC: "scuola", NSCIN: "no scuola" };
+
+// ---------- state ----------
+const store = {
+  get(k, f) { try { const v = localStorage.getItem(k); return v === null ? f : v; } catch { return f; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let tripId = store.get("bus21.trip", "casa-uni");
+if (!TRIPS.some(t => t.id === tripId)) tripId = "casa-uni";
+let mode = "auto";
+
+const toMin = s => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+
+function departures(trip, dayType) {
+  const ok = CODES[dayType];
+  return DATA[trip.dir]
+    .filter(r => ok.includes(r[0]))
+    .map(r => ({ dep: r[trip.from], arr: r[trip.to], code: r[0] }))
+    .sort((a, b) => toMin(a.dep) - toMin(b.dep));
+}
+function inText(mins) {
+  if (mins <= 0) return "ora";
+  if (mins < 60) return `tra ${mins} min`;
+  return `tra ${Math.floor(mins / 60)} h ${pad(mins % 60)}`;
+}
+
+// ---------- render ----------
+const $ = id => document.getElementById(id);
+
+function renderTrips() {
+  $("trips").innerHTML = TRIPS.map(t =>
+    `<button class="trip-btn" id="t-${t.id}" type="button" aria-pressed="${t.id === tripId}" data-id="${t.id}">${t.label}</button>`).join("");
+}
+$("trips").addEventListener("click", e => {
+  const b = e.target.closest("button[data-id]"); if (!b) return;
+  tripId = b.dataset.id; store.set("bus21.trip", tripId); renderTrips(); render();
+});
+$("mode").addEventListener("change", e => { mode = e.target.value; render(); });
+
+function render() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const trip = TRIPS.find(t => t.id === tripId);
+  const auto = classify(now);
+  const dayType = mode === "auto" ? auto.type : mode;
+
+  $("clock").textContent = now.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" }) +
+    " · " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+
+  const A = STOPS[trip.a], B = STOPS[trip.b];
+  $("route").innerHTML = `
+    <span class="dot"></span><div class="stop"><b>Sali a ${A.name}</b><span>${A.hint}</span></div>
+    <span class="stem"></span><span></span>
+    <span class="dot end"></span><div class="stop"><b>Scendi a ${B.name}</b><span>${B.hint}</span></div>`;
+
+  const deps = departures(trip, dayType);
+  const upcoming = deps.filter(d => toMin(d.dep) >= nowMin);
+  const nx = upcoming[0];
+  const next = $("next");
+
+  if (nx) {
+    const wait = toMin(nx.dep) - nowMin;
+    const ride = toMin(nx.arr) - toMin(nx.dep);
+    next.classList.toggle("soon", wait <= 3);
+    next.innerHTML = `
+      <div class="label">Prossimo bus</div>
+      <div class="next-top">
+        <div class="count">${wait <= 0 ? "Ora" : wait < 100 ? wait + "<small>min</small>" : Math.floor(wait / 60) + "<small>h</small> " + pad(wait % 60)}</div>
+        <div class="dep"><div class="t">${nx.dep}</div><div class="s">passa alla fermata</div></div>
+      </div>
+      <div class="next-meta"><span>Arrivo <b>${nx.arr}</b></span><span>${ride} min di viaggio</span>${CODE_TAG[nx.code] ? `<span>corsa ${CODE_TAG[nx.code]}</span>` : ""}</div>`;
+  } else {
+    next.classList.remove("soon");
+    const tmr = new Date(now); tmr.setDate(now.getDate() + 1);
+    const tType = classify(tmr).type;
+    const first = departures(trip, tType)[0];
+    next.innerHTML = `<div class="label">Prossimo bus</div>
+      <div class="empty">Per oggi le corse sono finite.</div>
+      ${first ? `<div class="next-meta"><span>Domani (${TYPE_NAME[tType].toLowerCase()}) la prima passa alle <b>${first.dep}</b>, arrivo <b>${first.arr}</b></span></div>` : ""}`;
+  }
+
+  const shown = upcoming.slice(1, 7);
+  const lastPast = deps.filter(d => toMin(d.dep) < nowMin).slice(-1);
+  $("list").innerHTML = (shown.length || lastPast.length)
+    ? lastPast.map(d => `<li class="past"><span class="t">${d.dep}</span><span class="arr">arrivo ${d.arr}</span><span class="in">passato</span></li>`).join("") +
+      shown.map(d => `<li><span class="t">${d.dep}</span><span class="arr">arrivo ${d.arr}${CODE_TAG[d.code] ? `<span class="tag">${CODE_TAG[d.code]}</span>` : ""}</span><span class="in">${inText(toMin(d.dep) - nowMin)}</span></li>`).join("")
+    : `<li><span class="empty" style="grid-column:1/-1">Nessun'altra corsa oggi.</span></li>`;
+
+  $("allgrid").innerHTML = deps.map(d => {
+    const cls = nx && d === nx ? "nx" : toMin(d.dep) < nowMin ? "past" : "";
+    return `<span class="${cls}">${d.dep}</span>`;
+  }).join("") || `<span class="empty">Nessuna corsa.</span>`;
+
+  $("dayWhat").textContent = TYPE_NAME[dayType];
+  $("dayWhy").textContent = mode === "auto" ? auto.why : `Scelto da te (in automatico sarebbe: ${TYPE_NAME[auto.type].toLowerCase()})`;
+
+  const w = $("warn");
+  if (ymd(now) >= TIMETABLE_SUMMER_FROM) {
+    w.hidden = false;
+    w.textContent = "Da metà giugno TUA potrebbe usare l'orario estivo: questi sono gli orari invernali. Controlla che siano ancora validi.";
+  } else w.hidden = true;
+}
+
+// ---------- lessons ----------
+// Each lesson: [date, start, end, course, room, floor, cancelled]
+const LEZ = __LEZ__;
+const COURSES = {
+  EPEI: { name: "Economia e politica economica internazionale", prof: "D. Furia", tipo: "obbligatorio" },
+  IND:  { name: "Economia industriale", prof: "D. Quaglione", tipo: "obbligatorio" },
+  EIA:  { name: "Economia dell'intelligenza artificiale", prof: "V. Carlei", tipo: "a scelta" },
+  SVI:  { name: "Economia politica e dello sviluppo", prof: "E. Bucciarelli", tipo: "a scelta" },
+  MON:  { name: "Economia monetaria", prof: "A. Pandimiglio", tipo: "a scelta" },
+  FIN:  { name: "Finanza aziendale", prof: "", tipo: "a scelta 6 CFU" },
+  KRM:  { name: "Knowledge risk management", prof: "M. Borgia", tipo: "a scelta 6 CFU" },
+  REP:  { name: "Reporting aziendale e sostenibilità", prof: "", tipo: "a scelta 6 CFU" },
+};
+const DEFAULT_MINE = ["EPEI", "IND", "EIA", "SVI", "FIN"];
+const FLOOR = { "-1": "piano −1", "T": "piano terra", "1": "1° piano", "2": "2° piano" };
+const WALK_IN = 10, WALK_OUT = 5; // minutes: stop → classroom with margin; classroom → stop
+
+let mine;
+try { mine = JSON.parse(store.get("bus21.corsi", "null")); } catch { mine = null; }
+if (!Array.isArray(mine)) mine = DEFAULT_MINE.slice();
+let view = store.get("bus21.view", "bus") === "lez" ? "lez" : "bus";
+
+const parseYmd = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const dur = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? " " + (m % 60) + " min" : ""}`;
+function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const k = (x.getDay() + 6) % 7; x.setDate(x.getDate() - k); return x; }
+function startWeek(now) {
+  const m = mondayOf(now);
+  if (now.getDay() === 0) m.setDate(m.getDate() + 7); // on Sunday look ahead to the coming week
+  return m;
+}
+const FIRST_WEEK = mondayOf(parseYmd(LEZ[0][0]));
+const LAST_WEEK = mondayOf(parseYmd(LEZ[LEZ.length - 1][0]));
+let weekStart = startWeek(new Date());
+if (weekStart < FIRST_WEEK) weekStart = new Date(FIRST_WEEK);
+if (weekStart > LAST_WEEK) weekStart = new Date(LAST_WEEK);
+
+const tripById = id => TRIPS.find(t => t.id === id);
+function busThere(date, startHHMM) {
+  const deps = departures(tripById("casa-uni"), classify(date).type);
+  const limit = toMin(startHHMM) - WALK_IN;
+  const ok = deps.filter(d => toMin(d.arr) <= limit);
+  const best = ok[ok.length - 1];
+  const nextOne = best ? deps[deps.indexOf(best) + 1] : deps[0];
+  const tight = nextOne && toMin(nextOne.arr) < toMin(startHHMM) ? nextOne : null;
+  return { best, tight };
+}
+function busBack(date, endHHMM) {
+  const deps = departures(tripById("uni-casa"), classify(date).type);
+  const after = deps.filter(d => toMin(d.dep) >= toMin(endHHMM) + WALK_OUT);
+  return { best: after[0], later: after[1] };
+}
+
+function renderChips() {
+  $("chips").innerHTML = Object.entries(COURSES).map(([k, c]) =>
+    `<button type="button" class="chip" id="c-${k}" data-k="${k}" aria-pressed="${mine.includes(k)}" title="${c.name}">${c.name}</button>`).join("");
+}
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]"); if (!b) return;
+  const k = b.dataset.k;
+  mine = mine.includes(k) ? mine.filter(x => x !== k) : [...mine, k];
+  store.set("bus21.corsi", JSON.stringify(mine));
+  renderChips(); renderLessons();
+});
+$("wkPrev").addEventListener("click", () => { weekStart.setDate(weekStart.getDate() - 7); renderLessons(); });
+$("wkNext").addEventListener("click", () => { weekStart.setDate(weekStart.getDate() + 7); renderLessons(); });
+
+function renderLessons() {
+  const now = new Date();
+  const todayKey = ymd(now);
+  const end = new Date(weekStart); end.setDate(end.getDate() + 5);
+  const fmtD = (d, o) => d.toLocaleDateString("it-IT", o);
+  $("wkLabel").textContent = `${fmtD(weekStart, { day: "numeric" })}–${fmtD(end, { day: "numeric", month: "long" })}`;
+  const thisMon = mondayOf(now);
+  const diff = Math.round((weekStart - thisMon) / 6048e5);
+  $("wkSub").textContent = diff === 0 ? "questa settimana" : diff === 1 ? "settimana prossima" : diff === -1 ? "settimana scorsa" : "";
+  $("wkPrev").disabled = weekStart <= FIRST_WEEK;
+  $("wkNext").disabled = weekStart >= LAST_WEEK;
+
+  let html = "";
+  for (let i = 0; i < 6; i++) {
+    const day = new Date(weekStart); day.setDate(day.getDate() + i);
+    const key = ymd(day);
+    const all = LEZ.filter(l => l[0] === key && mine.includes(l[3])).sort((a, b) => a[1].localeCompare(b[1]));
+    if (!all.length) continue;
+    const live = all.filter(l => !l[6]);
+    const isToday = key === todayKey;
+    const t0 = fmtD(day, { weekday: "long", day: "numeric", month: "long" });
+    const title = t0.charAt(0).toUpperCase() + t0.slice(1);
+    html += `<article class="lday${isToday ? " today" : ""}"><h3><span>${title}</span>${isToday ? "<small>oggi</small>" : ""}</h3>`;
+
+    if (live.length) {
+      const first = live[0];
+      const t = busThere(day, first[1]);
+      html += t.best
+        ? `<div class="brow"><div class="when"><i>21</i>${t.best.dep}</div><div class="what">Casa → Università, arrivo ${t.best.arr}<span>${t.tight ? `Se lo perdi: ${t.tight.dep} (arrivo ${t.tight.arr}, al limite)` : `Per la lezione delle ${first[1]}`}</span></div></div>`
+        : `<div class="brow"><div class="when">—</div><div class="what">Nessun bus arriva in tempo per le ${first[1]}</div></div>`;
+    }
+
+    let prevEnd = null;
+    all.forEach(l => {
+      const [, s, e, k, room, fl, off] = l;
+      const c = COURSES[k];
+      if (!off && prevEnd !== null && toMin(s) - toMin(prevEnd) >= 60)
+      {
+        let extra = "";
+        if (toMin(s) - toMin(prevEnd) >= 180) {
+          const back = busBack(day, prevEnd).best, again = busThere(day, s).best;
+          if (back && again && toMin(again.dep) - toMin(back.arr) >= 60)
+            extra = `<br>Per passare da casa: ritorno alle ${back.dep} (a casa ${back.arr}), poi riparti alle ${again.dep}.`;
+        }
+        html += `<div class="gap">Pausa ${prevEnd}–${s} (${dur(toMin(s) - toMin(prevEnd))})${extra}</div>`;
+      }
+      const clash = !off && live.some(o => o !== l && toMin(o[1]) < toMin(e) && toMin(s) < toMin(o[2]));
+      html += `<div class="lrow${off ? " off" : ""}"><div class="when">${s}<br>${e}</div><div class="what"><b>${c.name}${off ? '<span class="flag cancel">annullata</span>' : ""}${clash ? '<span class="flag clash">si sovrappone</span>' : ""}</b><span>Aula ${room} · ${FLOOR[fl] || ""}${c.prof ? " · " + c.prof : ""}</span></div></div>`;
+      if (!off) prevEnd = prevEnd && toMin(prevEnd) > toMin(e) ? prevEnd : e;
+    });
+
+    if (live.length) {
+      const lastEnd = live.reduce((m, l) => toMin(l[2]) > toMin(m) ? l[2] : m, live[0][2]);
+      const b = busBack(day, lastEnd);
+      html += b.best
+        ? `<div class="brow"><div class="when"><i>21</i>${b.best.dep}</div><div class="what">Università → Casa, arrivo ${b.best.arr}<span>Dalla fermata davanti al Conad${b.later ? ` · dopo: ${b.later.dep}` : ""}</span></div></div>`
+        : `<div class="brow"><div class="when">—</div><div class="what">Nessun bus dopo le ${lastEnd}</div></div>`;
+    } else {
+      html += `<div class="gap">Le lezioni di questo giorno sono annullate: niente bus da prendere.</div>`;
+    }
+    html += `</article>`;
+  }
+  $("days").innerHTML = html || `<div class="empty">${mine.length ? "Nessuna lezione dei tuoi corsi in questa settimana." : "Scegli almeno un corso qui sopra."}</div>`;
+}
+
+function setView(v) {
+  view = v; store.set("bus21.view", v);
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.view === v)));
+  $("view-bus").hidden = v !== "bus";
+  $("view-lez").hidden = v !== "lez";
+  if (v === "lez") renderLessons();
+}
+document.querySelector(".tabs").addEventListener("click", e => { const t = e.target.closest(".tab"); if (t) setView(t.dataset.view); });
+
+renderTrips();
+renderChips();
+render();
+setView(view);
+setInterval(() => { render(); if (view === "lez") renderLessons(); }, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { render(); if (view === "lez") renderLessons(); } });
+</script>
